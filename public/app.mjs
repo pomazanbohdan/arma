@@ -30,10 +30,9 @@ const legendSelection = () => Object.fromEntries(candidateIds.map(id => [seriesN
 const trendBucketMs = () => {
   if (range === '6h') return 300_000;
   if (range === '24h') return 900_000;
-  const duration = report.summary.latestTime - report.parsed.records[0].time;
-  return duration <= 6 * 3_600_000 ? 300_000 : duration <= 24 * 3_600_000 ? 900_000 : 3_600_000;
+  return 60_000;
 };
-const trendInterval = () => ({ 300000: '5 хв', 900000: '15 хв', 3600000: '1 год' })[trendBucketMs()];
+const trendInterval = () => ({ 60000: '1 хв', 300000: '5 хв', 900000: '15 хв' })[trendBucketMs()];
 
 function updateTrendDescription() {
   const unit = mode === 'total' ? 'накопичені голоси' : `голоси за ${trendInterval()}`;

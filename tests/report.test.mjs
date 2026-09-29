@@ -55,11 +55,14 @@ test('all-time trend starts at zero before the first vote and never looks ahead'
     line('2026-09-29 09:04:11.695', 2, '5'),
     line('2026-09-29 09:12:00.000', 3, '3'),
   ].join('\n')).records;
-  const points = trend(records, [3, 5], records[0].time, 300_000);
+  const points = trend(records, [3, 5], records[0].time, 60_000);
   assert.equal(points[0].time, records[0].time - 1);
   assert.deepEqual([...points[0].values.values()], [0, 0]);
-  assert.equal(points[1].time, Date.parse('2026-09-29T09:05:00+03:00'));
-  assert.deepEqual([...points[1].values.values()], [1, 1]);
+  assert.equal(points[1].time, Date.parse('2026-09-29T09:03:00+03:00'));
+  assert.deepEqual([...points[1].values.values()], [1, 0]);
+  assert.equal(points[2].time, Date.parse('2026-09-29T09:04:00+03:00'));
+  assert.deepEqual([...points[2].increments.values()], [0, 0]);
+  assert.deepEqual([...points[3].values.values()], [1, 1]);
   assert.equal(points.at(-1).time, records.at(-1).time);
   assert.deepEqual([...points.at(-1).values.values()], [2, 1]);
 });
