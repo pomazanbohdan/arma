@@ -27,9 +27,16 @@ const seriesColor = id => {
   return focusIds.includes(id) ? focusColor : `hsl(${Math.round(id * 137.5) % 360} 50% 42%)`;
 };
 const legendSelection = () => Object.fromEntries(candidateIds.map(id => [seriesName(id), selected.has(id)]));
+const trendBucketMs = () => {
+  if (range === '6h') return 300_000;
+  if (range === '24h') return 900_000;
+  const duration = report.summary.latestTime - report.parsed.records[0].time;
+  return duration <= 6 * 3_600_000 ? 300_000 : duration <= 24 * 3_600_000 ? 900_000 : 3_600_000;
+};
+const trendInterval = () => ({ 300000: '5 хв', 900000: '15 хв', 3600000: '1 год' })[trendBucketMs()];
 
 function updateTrendDescription() {
-  const unit = mode === 'total' ? 'накопичені голоси' : `голоси за ${range === '6h' ? '5 хв' : range === '24h' ? '15 хв' : '1 год'}`;
+  const unit = mode === 'total' ? 'накопичені голоси' : `голоси за ${trendInterval()}`;
   $('trend-chart').setAttribute('aria-label', `Динаміка: ${unit}. Показано ${selected.size} із ${candidateIds.length} кандидатів. Список нижче вмикає і вимикає лінії.`);
 }
 
@@ -100,7 +107,7 @@ function initCharts() {
   trendChart.on('click', params => {
     if (params.componentType !== 'series' || !Array.isArray(params.value)) return;
     const id = Number(params.seriesId);
-    const unit = mode === 'pace' ? `за ${range === '6h' ? '5 хв' : range === '24h' ? '15 хв' : '1 год'}` : 'накопичено';
+    const unit = mode === 'pace' ? `за ${trendInterval()}` : 'накопичено';
     $('point-detail').textContent = `${candidateById.get(id).name} · ${formatTime.format(params.value[0])} · ${formatNumber.format(params.value[1])} голосів ${unit}`;
   });
   window.addEventListener('resize', () => { overviewChart.resize(); trendChart.resize(); });
@@ -127,7 +134,7 @@ function renderTrend() {
   const last = report.summary.latestTime;
   const first = records[0].time;
   const start = range === 'all' ? first : Math.max(first, last - (range === '6h' ? 6 : 24) * 3_600_000);
-  const bucketMs = range === '6h' ? 300_000 : range === '24h' ? 900_000 : 3_600_000;
+  const bucketMs = trendBucketMs();
   const points = trend(records, candidateIds, start, bucketMs);
   const narrow = $('trend-chart').clientWidth < 650;
   trendChart.setOption({

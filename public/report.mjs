@@ -59,7 +59,9 @@ export function trend(records, candidateIds, startTime, bucketMs) {
   const totals = new Map(candidateIds.map(id => [id, 0]));
   const emptyIncrements = () => new Map(candidateIds.map(id => [id, 0]));
   const points = [];
-  let nextBucket = null;
+  let nextBucket = Math.floor(startTime / bucketMs) * bucketMs + bucketMs;
+  let increments = emptyIncrements();
+  let latestTime = null;
 
   for (const record of records) {
     if (record.time < startTime) {
@@ -67,22 +69,22 @@ export function trend(records, candidateIds, startTime, bucketMs) {
       continue;
     }
 
-    const bucket = Math.floor(record.time / bucketMs) * bucketMs;
-    if (nextBucket === null) {
-      nextBucket = bucket;
-      points.push({ time: bucket, values: new Map(totals), increments: emptyIncrements() });
+    if (!points.length) {
+      const baselineTime = record.time === startTime ? startTime - 1 : startTime;
+      points.push({ time: baselineTime, values: new Map(totals), increments: emptyIncrements() });
     }
-    while (nextBucket < bucket) {
+    while (record.time >= nextBucket) {
+      points.push({ time: nextBucket, values: new Map(totals), increments });
+      increments = emptyIncrements();
       nextBucket += bucketMs;
-      points.push({ time: nextBucket, values: new Map(totals), increments: emptyIncrements() });
     }
     for (const id of record.votes) if (selected.has(id)) {
       totals.set(id, totals.get(id) + 1);
-      const increments = points[points.length - 1].increments;
       increments.set(id, increments.get(id) + 1);
     }
-    points[points.length - 1].values = new Map(totals);
+    latestTime = record.time;
   }
 
+  if (latestTime !== null) points.push({ time: latestTime, values: new Map(totals), increments });
   return points;
 }
