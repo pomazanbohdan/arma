@@ -8,6 +8,7 @@ const candidateById = new Map(candidates.map(candidate => [candidate.id, candida
 const seriesOrder = [...focusIds, ...candidateIds.filter(id => !focusIds.includes(id))];
 const formatNumber = new Intl.NumberFormat('uk-UA');
 const formatTime = new Intl.DateTimeFormat('uk-UA', { timeZone: 'Europe/Kyiv', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+const formatDateTime = new Intl.DateTimeFormat('uk-UA', { timeZone: 'Europe/Kyiv', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 const formatHour = new Intl.DateTimeFormat('uk-UA', { timeZone: 'Europe/Kyiv', hour: '2-digit', minute: '2-digit' });
 const reportProxyUrl = 'https://arma-report-proxy.pomazan-bogdan.workers.dev/report';
 const autoRefreshIntervalMs = 5 * 60_000;
@@ -208,7 +209,9 @@ function toggleCandidate(id) {
 function renderAll() {
   $('ballots').textContent = formatNumber.format(report.summary.ballots);
   $('selections').textContent = formatNumber.format(report.summary.selections);
-  $('latest-time').textContent = formatTime.format(report.summary.latestTime);
+  $('last-vote-time').textContent = formatDateTime.format(report.summary.latestTime);
+  const updatedAt = Date.parse(report.meta?.fetchedAt ?? '');
+  $('data-updated-time').textContent = Number.isFinite(updatedAt) ? formatDateTime.format(updatedAt) : '—';
   renderOverview();
   renderTrend();
   renderCandidateList();
@@ -282,7 +285,7 @@ async function loadLocalFile(event) {
     if (file.size > 20_000_000) throw new Error('Максимальний розмір — 20 МБ.');
     const prepared = buildReport(await file.text());
     if (sequence !== loadSequence) return;
-    report = { ...prepared, meta: null };
+    report = { ...prepared, meta: { fetchedAt: new Date().toISOString() } };
     sourceMode = 'file';
     clearAutoRefreshTimer();
     renderAll();
