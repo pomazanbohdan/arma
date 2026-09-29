@@ -3,8 +3,13 @@ name: Publish voting dashboard
 on:
   push:
     branches: [main]
+  # Kyiv voting window in UTC, plus a few final snapshots after closing.
   schedule:
-    - cron: '3/5 * * * *'
+    - cron: '3/5 6-23 29 9 *'
+    - cron: '3/5 * 30 9 *'
+    - cron: '3/5 * 1 10 *'
+    - cron: '3/5 0-5 2 10 *'
+    - cron: '3,8,13,18 6 2 10 *'
   workflow_dispatch:
 
 concurrency:
@@ -17,46 +22,40 @@ permissions:
   id-token: write
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    outputs:
-      publish: ${{ steps.window.outputs.publish }}
-    steps:
-      - name: Limit scheduled updates to the voting period
-        id: window
-        run: |
-          if [[ "$GITHUB_EVENT_NAME" == "schedule" && "$(date -u +%Y%m%d)" -ge 20261006 ]]; then
-            echo 'publish=false' >> "$GITHUB_OUTPUT"
-          else
-            echo 'publish=true' >> "$GITHUB_OUTPUT"
-          fi
-      - uses: actions/checkout@v6
-        if: steps.window.outputs.publish == 'true'
-      - uses: actions/setup-node@v4
-        if: steps.window.outputs.publish == 'true'
-        with:
-          node-version: '22'
-      - name: Validate parser
-        if: steps.window.outputs.publish == 'true'
-        run: node --test tests/report.test.mjs
-      - name: Fetch and validate the public report
-        if: steps.window.outputs.publish == 'true'
-        run: node scripts/prepare.mjs
-      - uses: actions/configure-pages@v5
-        if: steps.window.outputs.publish == 'true'
-      - uses: actions/upload-pages-artifact@v4
-        if: steps.window.outputs.publish == 'true'
-        with:
-          path: public
-
-  deploy:
-    needs: build
-    if: needs.build.outputs.publish == 'true'
+  publish:
     runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      - name: Ignore later years
+        id: window
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == "schedule" && "$(date -u +%Y)" != "2026" ]]; then
+            echo 'active=false' >> "$GITHUB_OUTPUT"
+          else
+            echo 'active=true' >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v6
+        if: steps.window.outputs.active == 'true'
+      - uses: actions/setup-node@v4
+        if: steps.window.outputs.active == 'true'
+        with:
+          node-version: '22'
+      - name: Validate parser on code changes
+        if: steps.window.outputs.active == 'true' && github.event_name != 'schedule'
+        run: node --test tests/report.test.mjs
+      - name: Fetch and validate the public report
+        id: report
+        if: steps.window.outputs.active == 'true'
+        run: node scripts/prepare.mjs
+      - uses: actions/configure-pages@v5
+        if: steps.report.outputs.changed == 'true'
+      - uses: actions/upload-pages-artifact@v4
+        if: steps.report.outputs.changed == 'true'
+        with:
+          path: public
       - name: Deploy GitHub Pages
         id: deployment
+        if: steps.report.outputs.changed == 'true'
         uses: actions/deploy-pages@v4
