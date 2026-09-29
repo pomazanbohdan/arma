@@ -2,7 +2,7 @@ import { candidates } from './candidates.mjs';
 import { parseReport, summarize, trend } from './report.mjs';
 
 const focusIds = [3, 5, 8, 13, 19, 23, 25, 27];
-const focusColors = ['#3659b8', '#e07450', '#1a8b79', '#8a5fba', '#b88730', '#2780ad', '#c44c86', '#657e38'];
+const focusColor = '#b71421';
 const candidateIds = candidates.map(candidate => candidate.id);
 const candidateById = new Map(candidates.map(candidate => [candidate.id, candidate]));
 const seriesOrder = [...focusIds, ...candidateIds.filter(id => !focusIds.includes(id))];
@@ -20,10 +20,9 @@ let overviewChart = null;
 let trendChart = null;
 let ranking = [];
 
-const seriesName = id => `№${id} ${candidateById.get(id).name.split(' ')[0]}`;
+const seriesName = id => `№${id} ${focusIds.includes(id) ? candidateById.get(id).name : candidateById.get(id).name.split(' ')[0]}`;
 const seriesColor = id => {
-  const focus = focusIds.indexOf(id);
-  return focus >= 0 ? focusColors[focus] : `hsl(${Math.round(id * 137.5) % 360} 50% 42%)`;
+  return focusIds.includes(id) ? focusColor : `hsl(${Math.round(id * 137.5) % 360} 50% 42%)`;
 };
 const legendSelection = () => Object.fromEntries(candidateIds.map(id => [seriesName(id), selected.has(id)]));
 
@@ -111,11 +110,11 @@ function renderOverview() {
   const narrow = $('overview-chart').clientWidth < 650;
   overviewChart.setOption({
     animation: false,
-    grid: { left: narrow ? 130 : 230, right: narrow ? 50 : 78, top: 12, bottom: 42 },
+    grid: { left: narrow ? 130 : 330, right: narrow ? 50 : 78, top: 12, bottom: 42 },
     xAxis: { type: 'value', min: 0, axisLine: { show: true, lineStyle: { color: '#bdc8d3' } }, axisLabel: { color: '#7f8b95', fontSize: 11 }, splitLine: { lineStyle: { color: '#edf0f4' } } },
-    yAxis: { type: 'category', inverse: true, data: ranking.map(candidate => `№${candidate.id} ${candidate.name.split(' ')[0]}`), axisLine: { show: false }, axisTick: { show: false }, axisLabel: { width: narrow ? 118 : 215, overflow: 'truncate', color: '#344456', fontSize: narrow ? 11 : 12, fontWeight: 600 } },
+    yAxis: { type: 'category', inverse: true, data: ranking.map(candidate => `№${candidate.id}`), axisLine: { show: false }, axisTick: { show: false }, axisLabel: { width: narrow ? 118 : 310, overflow: 'truncate', fontSize: narrow ? 11 : 12, fontWeight: 600, formatter: (_, index) => { const candidate = ranking[index]; const label = `№${candidate.id} ${narrow ? candidate.name.split(' ')[0] : candidate.name}`; return focusIds.includes(candidate.id) ? `{focus|${label}}` : `{normal|${label}}`; }, rich: { focus: { color: focusColor, fontWeight: 800 }, normal: { color: '#344456', fontWeight: 600 } } } },
     tooltip: { trigger: 'item', confine: true, formatter: params => { const candidate = ranking[params.dataIndex]; return `${candidate.name}<br><b>${formatNumber.format(candidate.count)} голосів</b>`; } },
-    series: [{ type: 'bar', barWidth: 18, data: ranking.map(candidate => ({ value: candidate.count, itemStyle: { color: focusIds.includes(candidate.id) ? '#5272c5' : '#bec9d2', borderRadius: [0, 4, 4, 0] } })), label: { show: true, position: 'right', color: '#344456', fontWeight: 700, fontSize: 11, formatter: params => formatNumber.format(params.value) }, emphasis: { itemStyle: { opacity: .75 } } }],
+    series: [{ type: 'bar', barWidth: 18, data: ranking.map(candidate => ({ value: candidate.count, itemStyle: { color: focusIds.includes(candidate.id) ? focusColor : '#bec9d2', borderRadius: [0, 4, 4, 0] }, label: { color: focusIds.includes(candidate.id) ? focusColor : '#344456' } })), label: { show: true, position: 'right', fontWeight: 700, fontSize: 11, formatter: params => formatNumber.format(params.value) }, emphasis: { itemStyle: { opacity: .75 } } }],
   }, true);
 }
 
@@ -132,12 +131,12 @@ function renderTrend() {
     animation: false,
     color: seriesOrder.map(seriesColor),
     grid: { left: narrow ? 46 : 64, right: narrow ? 16 : 25, top: 88, bottom: 92 },
-    legend: { type: 'scroll', data: seriesOrder.map(seriesName), selected: legendSelection(), top: 4, left: 10, right: 10, height: 58, itemWidth: 16, itemHeight: 9, itemGap: 10, textStyle: { color: '#52616e', fontSize: narrow ? 10 : 11 } },
+    legend: { type: 'scroll', data: seriesOrder.map(seriesName), selected: legendSelection(), top: 4, left: 10, right: 10, height: 58, itemWidth: 16, itemHeight: 9, itemGap: 10, formatter: name => focusIds.some(id => seriesName(id) === name) ? `{focus|${name}}` : name, textStyle: { color: '#52616e', fontSize: narrow ? 10 : 11, rich: { focus: { color: focusColor, fontWeight: 800 } } } },
     tooltip: { trigger: 'axis', confine: true, axisPointer: { type: 'cross' }, valueFormatter: value => `${formatNumber.format(value)} голосів`, formatter: params => { if (!params.length) return ''; return `${formatTime.format(params[0].value[0])}<br>${params.map(item => `${item.marker} ${item.seriesName}: <b>${formatNumber.format(item.value[1])}</b>`).join('<br>')}`; } },
     xAxis: { type: 'time', min: points[0]?.time, max: Math.max(points.at(-1)?.time ?? 0, (points[0]?.time ?? 0) + bucketMs), axisLabel: { color: '#85929e', fontSize: 11, formatter: value => range === '6h' ? formatHour.format(value) : formatTime.format(value) }, axisLine: { lineStyle: { color: '#bdc8d3' } }, splitLine: { show: false } },
     yAxis: { type: 'value', min: 0, axisLabel: { color: '#85929e', fontSize: 11, formatter: value => formatNumber.format(value) }, axisLine: { show: false }, splitLine: { lineStyle: { color: '#edf0f4' } } },
     dataZoom: [{ type: 'inside', xAxisIndex: 0 }, { type: 'slider', xAxisIndex: 0, bottom: 22, height: 19, borderColor: '#dce3ed', fillerColor: '#dce6fb', handleStyle: { color: '#5272c5' }, showDetail: false }],
-    series: seriesOrder.map(id => ({ id: String(id), name: seriesName(id), type: 'line', smooth: false, showSymbol: false, symbolSize: 7, lineStyle: { width: focusIds.includes(id) ? 2.7 : 2 }, itemStyle: { color: seriesColor(id) }, emphasis: { focus: 'series' }, data: points.map(point => [point.time, mode === 'total' ? point.values.get(id) : point.increments.get(id)]) })),
+    series: seriesOrder.map(id => ({ id: String(id), name: seriesName(id), type: 'line', smooth: false, showSymbol: false, symbolSize: 7, lineStyle: { width: focusIds.includes(id) ? 2.7 : 2, type: focusIds.includes(id) ? ['solid', 'dashed', 'dotted'][focusIds.indexOf(id) % 3] : 'solid' }, itemStyle: { color: seriesColor(id) }, emphasis: { focus: 'series' }, data: points.map(point => [point.time, mode === 'total' ? point.values.get(id) : point.increments.get(id)]) })),
   }, true);
   const unit = mode === 'total' ? 'накопичені голоси' : `голоси за ${range === '6h' ? '5 хв' : range === '24h' ? '15 хв' : '1 год'}`;
   $('trend-chart').setAttribute('aria-label', `Динаміка: ${unit}. Початково показані кандидати №${focusIds.join(', ')}. Імена в легенді вмикають і вимикають лінії.`);
