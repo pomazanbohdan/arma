@@ -14,7 +14,7 @@ const $ = id => document.getElementById(id);
 let report = null;
 let sourceMode = 'live';
 let loadSequence = 0;
-let selected = new Set(focusIds);
+let selected = new Set(candidateIds);
 let range = '6h';
 let mode = 'total';
 let loading = false;
@@ -27,6 +27,11 @@ const seriesColor = id => {
   return focusIds.includes(id) ? focusColor : `hsl(${Math.round(id * 137.5) % 360} 50% 42%)`;
 };
 const legendSelection = () => Object.fromEntries(candidateIds.map(id => [seriesName(id), selected.has(id)]));
+
+function updateTrendDescription() {
+  const unit = mode === 'total' ? 'накопичені голоси' : `голоси за ${range === '6h' ? '5 хв' : range === '24h' ? '15 хв' : '1 год'}`;
+  $('trend-chart').setAttribute('aria-label', `Динаміка: ${unit}. Показано ${selected.size} із ${candidateIds.length} кандидатів. Імена в легенді вмикають і вимикають лінії.`);
+}
 
 function rankedCandidates() {
   return candidates.map(candidate => ({ ...candidate, count: report.summary.counts[candidate.id] }))
@@ -95,6 +100,7 @@ function initCharts() {
   trendChart.on('legendselectchanged', params => {
     selected = new Set(candidateIds.filter(id => params.selected[seriesName(id)]));
     renderCandidateList();
+    updateTrendDescription();
   });
   trendChart.on('click', params => {
     if (params.componentType !== 'series' || !Array.isArray(params.value)) return;
@@ -140,14 +146,14 @@ function renderTrend() {
     dataZoom: [{ type: 'inside', xAxisIndex: 0 }, { type: 'slider', xAxisIndex: 0, bottom: 22, height: 19, borderColor: '#dce3ed', fillerColor: '#dce6fb', handleStyle: { color: '#5272c5' }, showDetail: false }],
     series: seriesOrder.map(id => ({ id: String(id), name: seriesName(id), type: 'line', smooth: false, showSymbol: false, symbolSize: 7, lineStyle: { width: focusIds.includes(id) ? 2.7 : 2, type: focusIds.includes(id) ? ['solid', 'dashed', 'dotted'][focusIds.indexOf(id) % 3] : 'solid' }, itemStyle: { color: seriesColor(id) }, emphasis: { focus: 'series' }, data: points.map(point => [point.time, mode === 'total' ? point.values.get(id) : point.increments.get(id)]) })),
   }, true);
-  const unit = mode === 'total' ? 'накопичені голоси' : `голоси за ${range === '6h' ? '5 хв' : range === '24h' ? '15 хв' : '1 год'}`;
-  $('trend-chart').setAttribute('aria-label', `Динаміка: ${unit}. Початково показані кандидати №${focusIds.join(', ')}. Імена в легенді вмикають і вимикають лінії.`);
+  updateTrendDescription();
 }
 
 function toggleCandidate(id) {
   if (selected.has(id)) selected.delete(id); else selected.add(id);
   if (trendChart) trendChart.setOption({ legend: { selected: legendSelection() } });
   renderCandidateList();
+  updateTrendDescription();
   $('point-detail').textContent = `${candidateById.get(id).name}: ${selected.has(id) ? 'показано' : 'приховано'} на графіку.`;
 }
 
