@@ -10,6 +10,8 @@ const formatNumber = new Intl.NumberFormat('uk-UA');
 const formatTime = new Intl.DateTimeFormat('uk-UA', { timeZone: 'Europe/Kyiv', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 const formatHour = new Intl.DateTimeFormat('uk-UA', { timeZone: 'Europe/Kyiv', hour: '2-digit', minute: '2-digit' });
 const reportProxyUrl = 'https://arma-report-proxy.pomazan-bogdan.workers.dev/report';
+const autoRefreshIntervalMs = 5 * 60_000;
+const manualRefreshIntervalMs = 60_000;
 const $ = id => document.getElementById(id);
 
 let report = null;
@@ -21,6 +23,7 @@ let mode = 'total';
 let loading = false;
 let lastManualRefreshAt = 0;
 let manualRefreshTimer = null;
+let autoRefreshTimer = null;
 let overviewChart = null;
 let trendChart = null;
 let ranking = [];
@@ -37,21 +40,35 @@ const trendBucketMs = () => {
 };
 const trendInterval = () => ({ 60000: '1 хв', 300000: '5 хв', 900000: '15 хв' })[trendBucketMs()];
 
+function clearAutoRefreshTimer() {
+  if (autoRefreshTimer) clearTimeout(autoRefreshTimer);
+  autoRefreshTimer = null;
+}
+
+function scheduleAutoRefresh() {
+  clearAutoRefreshTimer();
+  if (sourceMode === 'file') return;
+  autoRefreshTimer = setTimeout(() => {
+    autoRefreshTimer = null;
+    loadReport();
+  }, autoRefreshIntervalMs);
+}
+
 function updateRefreshControls() {
-  const remaining = Math.max(0, lastManualRefreshAt + 60_000 - Date.now());
+  const remaining = Math.max(0, lastManualRefreshAt + manualRefreshIntervalMs - Date.now());
   const waiting = remaining > 0;
   $('refresh').disabled = loading || waiting;
-  $('refresh').textContent = waiting ? `Зачекайте ${Math.ceil(remaining / 1000)} с` : 'Оновити ↻';
+  $('refresh').textContent = waiting ? 'Зачекайте ' + Math.ceil(remaining / 1000) + ' с' : 'Оновити ↻';
   $('use-live').disabled = loading || waiting || sourceMode === 'live';
 }
 
 function requestManualRefresh() {
-  if (loading || Date.now() < lastManualRefreshAt + 60_000) return;
+  if (loading || Date.now() < lastManualRefreshAt + manualRefreshIntervalMs) return;
   lastManualRefreshAt = Date.now();
   if (manualRefreshTimer) clearInterval(manualRefreshTimer);
   manualRefreshTimer = setInterval(() => {
     updateRefreshControls();
-    if (Date.now() >= lastManualRefreshAt + 60_000) {
+    if (Date.now() >= lastManualRefreshAt + manualRefreshIntervalMs) {
       clearInterval(manualRefreshTimer);
       manualRefreshTimer = null;
     }
@@ -205,6 +222,7 @@ function buildReport(raw, expectedCount = null) {
 async function loadReport(forceLive = false) {
   if (sourceMode === 'file' && !forceLive) return;
   if (loading) return;
+  clearAutoRefreshTimer();
   loading = true;
   const sequence = ++loadSequence;
   updateRefreshControls();
@@ -235,7 +253,7 @@ async function loadReport(forceLive = false) {
     $('status-dot').classList.toggle('error', sourceMode !== 'live');
     $('status-text').textContent = sourceMode === 'live' ? 'Пряме джерело' : 'Резервна копія';
     $('status-detail').textContent = sourceMode === 'live'
-      ? `ARMA · перевірка щохвилини${window.echarts ? '' : ' · графіки недоступні'}`
+      ? `ARMA · автооновлення кожні 5 хв${window.echarts ? '' : ' · графіки недоступні'}`
       : `Worker недоступний · копія ${formatTime.format(Date.parse(meta.fetchedAt))} (Київ)`;
     $('fallback-status').textContent = sourceMode === 'live' ? 'Локальний режим вимкнено.' : 'Працює остання опублікована копія.';
   } catch (error) {
@@ -247,6 +265,7 @@ async function loadReport(forceLive = false) {
   } finally {
     loading = false;
     updateRefreshControls();
+    scheduleAutoRefresh();
   }
 }
 
@@ -261,6 +280,7 @@ async function loadLocalFile(event) {
     if (sequence !== loadSequence) return;
     report = { ...prepared, meta: null };
     sourceMode = 'file';
+    clearAutoRefreshTimer();
     renderAll();
     $('status-dot').classList.remove('error');
     $('status-text').textContent = 'Локальний файл';
@@ -294,4 +314,3 @@ $('refresh').addEventListener('click', requestManualRefresh);
 $('use-live').addEventListener('click', requestManualRefresh);
 $('report-file').addEventListener('change', loadLocalFile);
 loadReport();
-setInterval(loadReport, 60_000);
