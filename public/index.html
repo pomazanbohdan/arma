@@ -3,21 +3,54 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#101820">
-    <title>ARMA</title>
-    <style>
-      :root { color-scheme: dark; font-family: system-ui, sans-serif; }
-      * { box-sizing: border-box; }
-      body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #101820; color: #f4f5f5; }
-      main { width: min(100% - 3rem, 42rem); }
-      h1 { margin: 0 0 1rem; font-size: clamp(3rem, 12vw, 6rem); letter-spacing: -.06em; }
-      p { margin: 0; color: #c5ccce; font-size: 1.125rem; line-height: 1.6; }
-    </style>
+    <meta name="theme-color" content="#f6f7f9">
+    <meta name="description" content="Незалежний моніторинг відкритого протоколу голосування до Ради громадського контролю при АРМА.">
+    <title>Голосування до Ради громадського контролю при АРМА — моніторинг</title>
+    <link rel="stylesheet" href="./styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/echarts@6.1.0/dist/echarts.min.js" integrity="sha384-C2iskrW/uPW46KzOjrvJIQo4YkV8lkD+QS0CrDN18IIPIpT/g2USu8bTP3nvmIAD" crossorigin="anonymous"></script>
+    <script type="module" src="./app.mjs"></script>
   </head>
   <body>
-    <main>
-      <h1>ARMA</h1>
-      <p>Сайт готується. Інформація з’явиться незабаром.</p>
-    </main>
+    <div class="site-shell">
+      <header class="site-header">
+        <a class="brand" href="#top"><span class="brand-mark" aria-hidden="true">↗</span> АРМА · дані</a>
+        <nav aria-label="Розділи"><a href="#overview">Підсумок</a><a href="#trend">Тенденції</a><a href="#candidates">Кандидати</a></nav>
+        <a class="source-link" href="https://voting.arma.gov.ua/voting/" target="_blank" rel="noopener noreferrer">Джерело ↗</a>
+      </header>
+
+      <main id="top">
+        <section class="intro-bar" aria-labelledby="page-title">
+          <div><span class="eyebrow"><span class="live-dot" aria-hidden="true"></span> Незалежний моніторинг · 2026</span><h1 id="page-title">Рейтинг голосування</h1><p>Рада громадського контролю при АРМА · 29 вересня — 2 жовтня</p></div>
+          <div class="intro-fact"><strong>9 <span>/ 27</span></strong><small>місць / кандидатів</small></div>
+        </section>
+
+        <div class="data-status" aria-live="polite"><div><span id="status-dot" class="status-dot" aria-hidden="true"></span><strong id="status-text">Завантаження…</strong><span id="status-detail">Отримуємо протокол</span></div><button id="refresh" type="button">Оновити ↻</button></div>
+
+        <section class="metrics" aria-label="Ключові показники">
+          <div class="metric"><span>Записів у протоколі</span><strong id="ballots">—</strong></div>
+          <div class="metric"><span>Голосів за кандидатів</span><strong id="selections">—</strong></div>
+          <div class="metric"><span>Останній запис · Київ</span><strong id="latest-time">—</strong></div>
+        </section>
+
+        <section id="overview" class="chart-section" aria-labelledby="overview-title">
+          <div class="section-title"><div><span class="section-index">01 / Підсумок</span><h2 id="overview-title">Голоси за кандидатів</h2></div><p>Синім — №3, 5, 8, 13, 19, 23, 25, 27</p></div>
+          <div class="chart-card"><div id="overview-chart" class="overview-chart" role="img" aria-label="Горизонтальний графік голосів усіх 27 кандидатів"></div><p class="chart-hint">Натисніть смугу, щоб показати кандидата в тенденціях. Вісь голосів починається від нуля.</p></div>
+        </section>
+
+        <section id="trend" class="chart-section" aria-labelledby="trend-title">
+          <div class="section-title"><div><span class="section-index">02 / Тенденції</span><h2 id="trend-title">Динаміка голосів</h2></div><div class="controls"><div class="segmented" role="group" aria-label="Показник"><button type="button" data-mode="total" aria-pressed="true">Накопичено</button><button type="button" data-mode="pace" aria-pressed="false">За інтервал</button></div><div class="segmented" role="group" aria-label="Період"><button type="button" data-range="6h" aria-pressed="true">6 год</button><button type="button" data-range="24h" aria-pressed="false">24 год</button><button type="button" data-range="all" aria-pressed="false">Весь час</button></div></div></div>
+          <div class="chart-card"><div id="trend-chart" class="trend-chart" role="img" aria-label="Графік зміни голосів у часі"></div><div id="point-detail" class="point-detail" aria-live="polite">Натисніть лінію або точку, щоб побачити значення. Імена в легенді вмикають окремих кандидатів.</div></div>
+        </section>
+
+        <section id="candidates" class="chart-section" aria-labelledby="candidates-title">
+          <div class="section-title"><div><span class="section-index">03 / Список</span><h2 id="candidates-title">Усі кандидати</h2></div><p>Натисніть рядок для вибору на графіку</p></div>
+          <div class="list-card"><div class="candidate-table-head"><span>Кандидат · громадське об’єднання</span><span>Всього</span><span>За годину*</span></div><div id="candidate-list"><p class="empty-state">Очікуємо дані…</p></div><p class="list-footnote">* Година до останнього запису протоколу. Виділення восьми кандидатів задане для зручності порівняння.</p></div>
+        </section>
+
+        <details class="method"><summary>Дані та методика <span aria-hidden="true">↓</span></summary><div><p>Браузер завантажує текстову копію <a href="https://voting.arma.gov.ua/voting/public/hashed_report.txt" target="_blank" rel="noopener noreferrer">відкритого протоколу АРМА</a> з GitHub Pages і локально підраховує голоси та будує графіки. Копія оновлюється GitHub Actions орієнтовно кожні 5 хвилин протягом голосування; фактичний запуск може затриматися. Час копії показано над графіками.</p><p>Один запис містить до 9 вибраних кандидатів. Час записів інтерпретується як час Києва. IP-адреси й хеші не відображаються. Показники попередні; <a href="https://voting.arma.gov.ua/voting/" target="_blank" rel="noopener noreferrer">офіційні результати оголошує АРМА</a>. Сайт не пов’язаний з АРМА.</p></div></details>
+      </main>
+
+      <footer><span>Незалежний моніторинг публічних даних</span><a href="https://github.com/pomazanbohdan/arma" target="_blank" rel="noopener noreferrer">Відкритий код ↗</a></footer>
+    </div>
   </body>
 </html>

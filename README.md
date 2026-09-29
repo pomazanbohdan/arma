@@ -1,14 +1,23 @@
-# ARMA
+# Моніторинг голосування до РГК при АРМА
 
-Односторінковий статичний сайт. Вміст сторінки — у `public/index.html`.
+Односторінковий сайт: [pomazanbohdan.github.io/arma](https://pomazanbohdan.github.io/arma/). Показує підсумок для всіх 27 кандидатів, тенденції та список. Кандидати №3, 5, 8, 13, 19, 23, 25, 27 виділені для порівняння. Графіки побудовані на Apache ECharts із CDN.
 
-## Публікація на Cloudflare Pages
+## Як працюють дані
 
-- Репозиторій: `pomazanbohdan/arma`
-- Production branch: `main`
-- Framework preset: `None`
-- Build command: залишити порожнім
-- Build output directory: `public`
-- Root directory: `/` (типове значення)
+Офіційне джерело: [відкритий текстовий протокол АРМА](https://voting.arma.gov.ua/voting/public/hashed_report.txt). Пряме завантаження з GitHub Pages до іншого домену блокує CORS джерела. GitHub Actions отримує та перевіряє протокол, після чого публікує незмінений текст у складі GitHub Pages. Браузер завантажує цю копію зі свого домену, локально парсить записи та обчислює всі показники. IP-адреси та хеші не використовуються в інтерфейсі.
 
-Cloudflare Pages автоматично публікує зміни після push у `main` через Git integration.
+Workflow запускається після змін у `main`, вручну та за розкладом приблизно кожні 5 хвилин. GitHub може затримувати заплановані запуски. Автоматичне оновлення завершується 6 жовтня 2026 року; сторінка зберігає останню опубліковану копію. Час копії видно над графіками. Дані попередні, офіційні результати оголошує АРМА.
+
+## Розробка
+
+Потрібен Node.js 22+ і Python або інший локальний HTTP-сервер.
+
+```powershell
+node --test tests/report.test.mjs
+node scripts/prepare.mjs
+python -m http.server 8765 --directory public
+```
+
+Відкрийте `http://localhost:8765/`. Каталог `public/data/` створюється локально та не додається до Git.
+
+Публікація налаштована в `.github/workflows/pages.yml` як GitHub Pages workflow. Проєкт не має серверної частини чи ключів доступу.
