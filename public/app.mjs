@@ -9,6 +9,7 @@ const seriesOrder = [...focusIds, ...candidateIds.filter(id => !focusIds.include
 const formatNumber = new Intl.NumberFormat('uk-UA');
 const formatTime = new Intl.DateTimeFormat('uk-UA', { timeZone: 'Europe/Kyiv', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 const formatHour = new Intl.DateTimeFormat('uk-UA', { timeZone: 'Europe/Kyiv', hour: '2-digit', minute: '2-digit' });
+const reportProxyUrl = 'https://arma-report-proxy.pomazan-bogdan.workers.dev/report';
 const $ = id => document.getElementById(id);
 
 let report = null;
@@ -18,6 +19,8 @@ let selected = new Set(candidateIds);
 let range = '6h';
 let mode = 'total';
 let loading = false;
+let lastManualRefreshAt = 0;
+let manualRefreshTimer = null;
 let overviewChart = null;
 let trendChart = null;
 let ranking = [];
@@ -33,6 +36,29 @@ const trendBucketMs = () => {
   return 60_000;
 };
 const trendInterval = () => ({ 60000: '1 хв', 300000: '5 хв', 900000: '15 хв' })[trendBucketMs()];
+
+function updateRefreshControls() {
+  const remaining = Math.max(0, lastManualRefreshAt + 60_000 - Date.now());
+  const waiting = remaining > 0;
+  $('refresh').disabled = loading || waiting;
+  $('refresh').textContent = waiting ? `Зачекайте ${Math.ceil(remaining / 1000)} с` : 'Оновити ↻';
+  $('use-live').disabled = loading || waiting || sourceMode === 'live';
+}
+
+function requestManualRefresh() {
+  if (loading || Date.now() < lastManualRefreshAt + 60_000) return;
+  lastManualRefreshAt = Date.now();
+  if (manualRefreshTimer) clearInterval(manualRefreshTimer);
+  manualRefreshTimer = setInterval(() => {
+    updateRefreshControls();
+    if (Date.now() >= lastManualRefreshAt + 60_000) {
+      clearInterval(manualRefreshTimer);
+      manualRefreshTimer = null;
+    }
+  }, 1000);
+  updateRefreshControls();
+  loadReport(true);
+}
 
 function updateTrendDescription() {
   const unit = mode === 'total' ? 'накопичені голоси' : `голоси за ${trendInterval()}`;
@@ -181,26 +207,37 @@ async function loadReport(forceLive = false) {
   if (loading) return;
   loading = true;
   const sequence = ++loadSequence;
-  $('refresh').disabled = true;
-  const version = Math.floor(Date.now() / 60_000);
+  updateRefreshControls();
   try {
-    const [dataResponse, metaResponse] = await Promise.all([
-      fetch(`./data/hashed_report.txt?v=${version}`, { cache: 'no-store', signal: AbortSignal.timeout(20_000) }),
-      fetch(`./data/meta.json?v=${version}`, { cache: 'no-store', signal: AbortSignal.timeout(20_000) }),
-    ]);
-    if (!dataResponse.ok || !metaResponse.ok) throw new Error(`HTTP ${dataResponse.status}/${metaResponse.status}`);
-    const [raw, meta] = await Promise.all([dataResponse.text(), metaResponse.json()]);
-    const prepared = buildReport(raw, meta.recordCount);
+    let prepared;
+    let meta;
+    let nextSourceMode = 'live';
+    try {
+      const response = await fetch(reportProxyUrl, { cache: 'no-store', signal: AbortSignal.timeout(20_000) });
+      if (!response.ok) throw new Error(`Worker HTTP ${response.status}`);
+      prepared = buildReport(await response.text());
+      meta = { fetchedAt: response.headers.get('X-Proxy-Fetched-At') || new Date().toISOString() };
+    } catch (liveError) {
+      const [dataResponse, metaResponse] = await Promise.all([
+        fetch('./data/hashed_report.txt', { cache: 'no-store', signal: AbortSignal.timeout(20_000) }),
+        fetch('./data/meta.json', { cache: 'no-store', signal: AbortSignal.timeout(20_000) }),
+      ]);
+      if (!dataResponse.ok || !metaResponse.ok) throw new Error(`Онлайн: ${liveError.message}; резерв HTTP ${dataResponse.status}/${metaResponse.status}`);
+      const [raw, snapshotMeta] = await Promise.all([dataResponse.text(), metaResponse.json()]);
+      prepared = buildReport(raw, snapshotMeta.recordCount);
+      meta = snapshotMeta;
+      nextSourceMode = 'snapshot';
+    }
     if (sequence !== loadSequence) return;
     report = { ...prepared, meta };
-    sourceMode = 'live';
+    sourceMode = nextSourceMode;
     renderAll();
-    $('status-dot').classList.remove('error');
-    $('status-text').textContent = 'Дані завантажено';
-    $('status-detail').textContent = `Копія: ${formatTime.format(Date.parse(meta.fetchedAt))} (Київ) · перевірка щохвилини${window.echarts ? '' : ' · графіки недоступні'}`;
-    $('fallback-status').textContent = 'Локальний режим вимкнено.';
-    $('use-live').disabled = true;
-    $('refresh').textContent = 'Оновити ↻';
+    $('status-dot').classList.toggle('error', sourceMode !== 'live');
+    $('status-text').textContent = sourceMode === 'live' ? 'Пряме джерело' : 'Резервна копія';
+    $('status-detail').textContent = sourceMode === 'live'
+      ? `ARMA · перевірка щохвилини${window.echarts ? '' : ' · графіки недоступні'}`
+      : `Worker недоступний · копія ${formatTime.format(Date.parse(meta.fetchedAt))} (Київ)`;
+    $('fallback-status').textContent = sourceMode === 'live' ? 'Локальний режим вимкнено.' : 'Працює остання опублікована копія.';
   } catch (error) {
     if (sequence !== loadSequence) return;
     $('status-dot').classList.add('error');
@@ -209,7 +246,7 @@ async function loadReport(forceLive = false) {
     console.error('Report load failed:', error);
   } finally {
     loading = false;
-    $('refresh').disabled = false;
+    updateRefreshControls();
   }
 }
 
@@ -229,12 +266,11 @@ async function loadLocalFile(event) {
     $('status-text').textContent = 'Локальний файл';
     $('status-detail').textContent = `${file.name} · ${formatNumber.format(report.summary.ballots)} записів · автооновлення призупинено`;
     $('fallback-status').textContent = `Завантажено ${file.name}. Графіки й список оновлено.`;
-    $('use-live').disabled = false;
-    $('refresh').textContent = 'Онлайн ↻';
   } catch (error) {
     $('fallback-status').textContent = `Файл не прийнято: ${error.message}`;
   } finally {
     event.target.value = '';
+    updateRefreshControls();
   }
 }
 
@@ -254,8 +290,8 @@ document.addEventListener('click', event => {
     renderTrend();
   }
 });
-$('refresh').addEventListener('click', () => loadReport(true));
-$('use-live').addEventListener('click', () => loadReport(true));
+$('refresh').addEventListener('click', requestManualRefresh);
+$('use-live').addEventListener('click', requestManualRefresh);
 $('report-file').addEventListener('change', loadLocalFile);
 loadReport();
 setInterval(loadReport, 60_000);
