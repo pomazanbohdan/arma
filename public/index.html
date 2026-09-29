@@ -29,7 +29,7 @@
         <section class="metrics" aria-label="Ключові показники">
           <div class="metric"><span>Записів у протоколі</span><strong id="ballots">—</strong></div>
           <div class="metric"><span>Голосів за кандидатів</span><strong id="selections">—</strong></div>
-          <div class="metric"><span>Дата та час останнього голосу</span><strong id="latest-time">—</strong></div>
+          <div class="metric"><span>Дата та час оновлення даних</span><strong id="latest-time">—</strong></div>
         </section>
 
         <section id="overview" class="chart-section" aria-labelledby="overview-title">
@@ -48,6 +48,11 @@
         </section>
 
         <details class="method"><summary>Дані та методика <span aria-hidden="true">↓</span></summary><div><p>Браузер завантажує текстову копію <a href="https://voting.arma.gov.ua/voting/public/hashed_report.txt" target="_blank" rel="noopener noreferrer">відкритого протоколу АРМА</a> з GitHub Pages і локально підраховує голоси та будує графіки. Копія оновлюється GitHub Actions орієнтовно кожні 5 хвилин протягом голосування; фактичний запуск може затриматися. Час копії показано над графіками.</p><p>Один запис містить до 9 вибраних кандидатів. Час записів інтерпретується як час Києва. IP-адреси й хеші не відображаються. Показники попередні; <a href="https://voting.arma.gov.ua/voting/" target="_blank" rel="noopener noreferrer">офіційні результати оголошує АРМА</a>. Сайт не пов’язаний з АРМА.</p></div></details>
+
+        <section class="fallback" aria-labelledby="fallback-title">
+          <div><span class="section-index">04 / Резерв</span><h2 id="fallback-title">Локальний файл</h2><p>Збережіть <a href="https://voting.arma.gov.ua/voting/public/hashed_report.txt" target="_blank" rel="noopener noreferrer">оригінальний TXT ↗</a> і відкрийте його тут. Файл обробляється лише у вашому браузері.</p></div>
+          <div class="fallback-controls"><label for="report-file">Файл протоколу</label><input id="report-file" type="file" accept=".txt,text/plain"><button id="use-live" type="button" disabled>Повернутися до онлайн</button><p id="fallback-status" role="status" aria-live="polite">Локальний режим вимкнено.</p></div>
+        </section>
       </main>
 
       <footer><span>Незалежний моніторинг публічних даних</span><a href="https://github.com/pomazanbohdan/arma" target="_blank" rel="noopener noreferrer">Відкритий код ↗</a></footer>

@@ -12,6 +12,8 @@ const formatHour = new Intl.DateTimeFormat('uk-UA', { timeZone: 'Europe/Kyiv', h
 const $ = id => document.getElementById(id);
 
 let report = null;
+let sourceMode = 'live';
+let loadSequence = 0;
 let selected = new Set(focusIds);
 let range = '6h';
 let mode = 'total';
@@ -158,9 +160,20 @@ function renderAll() {
   renderCandidateList();
 }
 
-async function loadReport() {
+function buildReport(raw, expectedCount = null) {
+  const parsed = parseReport(raw);
+  if (!parsed.records.length || parsed.rejected.length ||
+      (expectedCount !== null && parsed.records.length !== expectedCount)) {
+    throw new Error('Некоректний або неповний протокол');
+  }
+  return { parsed, summary: summarize(parsed.records) };
+}
+
+async function loadReport(forceLive = false) {
+  if (sourceMode === 'file' && !forceLive) return;
   if (loading) return;
   loading = true;
+  const sequence = ++loadSequence;
   $('refresh').disabled = true;
   const version = Math.floor(Date.now() / 60_000);
   try {
@@ -170,21 +183,51 @@ async function loadReport() {
     ]);
     if (!dataResponse.ok || !metaResponse.ok) throw new Error(`HTTP ${dataResponse.status}/${metaResponse.status}`);
     const [raw, meta] = await Promise.all([dataResponse.text(), metaResponse.json()]);
-    const parsed = parseReport(raw);
-    if (!parsed.records.length || parsed.rejected.length || parsed.records.length !== meta.recordCount) throw new Error('Некоректний або неповний протокол');
-    report = { parsed, meta, summary: summarize(parsed.records) };
+    const prepared = buildReport(raw, meta.recordCount);
+    if (sequence !== loadSequence) return;
+    report = { ...prepared, meta };
+    sourceMode = 'live';
     renderAll();
     $('status-dot').classList.remove('error');
     $('status-text').textContent = 'Дані завантажено';
     $('status-detail').textContent = `Копія: ${formatTime.format(Date.parse(meta.fetchedAt))} (Київ) · перевірка щохвилини${window.echarts ? '' : ' · графіки недоступні'}`;
+    $('fallback-status').textContent = 'Локальний режим вимкнено.';
+    $('use-live').disabled = true;
+    $('refresh').textContent = 'Оновити ↻';
   } catch (error) {
+    if (sequence !== loadSequence) return;
     $('status-dot').classList.add('error');
     $('status-text').textContent = report ? 'Оновлення недоступне' : 'Дані недоступні';
-    $('status-detail').textContent = report ? 'Показуємо останню успішну копію.' : 'Повторіть спробу пізніше.';
+    $('status-detail').textContent = sourceMode === 'file' ? 'Онлайн недоступний · показуємо локальний файл.' : report ? 'Показуємо останню успішну копію.' : 'Повторіть спробу пізніше.';
     console.error('Report load failed:', error);
   } finally {
     loading = false;
     $('refresh').disabled = false;
+  }
+}
+
+async function loadLocalFile(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  const sequence = ++loadSequence;
+  $('fallback-status').textContent = 'Читаємо файл…';
+  try {
+    if (file.size > 20_000_000) throw new Error('Максимальний розмір — 20 МБ.');
+    const prepared = buildReport(await file.text());
+    if (sequence !== loadSequence) return;
+    report = { ...prepared, meta: null };
+    sourceMode = 'file';
+    renderAll();
+    $('status-dot').classList.remove('error');
+    $('status-text').textContent = 'Локальний файл';
+    $('status-detail').textContent = `${file.name} · ${formatNumber.format(report.summary.ballots)} записів · автооновлення призупинено`;
+    $('fallback-status').textContent = `Завантажено ${file.name}. Графіки й список оновлено.`;
+    $('use-live').disabled = false;
+    $('refresh').textContent = 'Онлайн ↻';
+  } catch (error) {
+    $('fallback-status').textContent = `Файл не прийнято: ${error.message}`;
+  } finally {
+    event.target.value = '';
   }
 }
 
@@ -204,6 +247,8 @@ document.addEventListener('click', event => {
     renderTrend();
   }
 });
-$('refresh').addEventListener('click', loadReport);
+$('refresh').addEventListener('click', () => loadReport(true));
+$('use-live').addEventListener('click', () => loadReport(true));
+$('report-file').addEventListener('change', loadLocalFile);
 loadReport();
 setInterval(loadReport, 60_000);
