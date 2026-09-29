@@ -30,7 +30,7 @@ const legendSelection = () => Object.fromEntries(candidateIds.map(id => [seriesN
 
 function updateTrendDescription() {
   const unit = mode === 'total' ? 'накопичені голоси' : `голоси за ${range === '6h' ? '5 хв' : range === '24h' ? '15 хв' : '1 год'}`;
-  $('trend-chart').setAttribute('aria-label', `Динаміка: ${unit}. Показано ${selected.size} із ${candidateIds.length} кандидатів. Імена в легенді вмикають і вимикають лінії.`);
+  $('trend-chart').setAttribute('aria-label', `Динаміка: ${unit}. Показано ${selected.size} із ${candidateIds.length} кандидатів. Список нижче вмикає і вимикає лінії.`);
 }
 
 function rankedCandidates() {
@@ -97,11 +97,6 @@ function initCharts() {
   overviewChart.on('click', params => {
     if (params.componentType === 'series' && ranking[params.dataIndex]) toggleCandidate(ranking[params.dataIndex].id);
   });
-  trendChart.on('legendselectchanged', params => {
-    selected = new Set(candidateIds.filter(id => params.selected[seriesName(id)]));
-    renderCandidateList();
-    updateTrendDescription();
-  });
   trendChart.on('click', params => {
     if (params.componentType !== 'series' || !Array.isArray(params.value)) return;
     const id = Number(params.seriesId);
@@ -138,9 +133,9 @@ function renderTrend() {
   trendChart.setOption({
     animation: false,
     color: seriesOrder.map(seriesColor),
-    grid: { left: narrow ? 46 : 64, right: narrow ? 16 : 25, top: 88, bottom: 92 },
-    legend: { type: 'scroll', data: seriesOrder.map(seriesName), selected: legendSelection(), top: 4, left: 10, right: 10, height: 58, itemWidth: 16, itemHeight: 9, itemGap: 10, formatter: name => focusIds.some(id => seriesName(id) === name) ? `{focus|${name}}` : name, textStyle: { color: '#52616e', fontSize: narrow ? 10 : 11, rich: { focus: { color: focusColor, fontWeight: 800 } } } },
-    tooltip: { trigger: 'axis', confine: true, axisPointer: { type: 'cross' }, valueFormatter: value => `${formatNumber.format(value)} голосів`, formatter: params => { if (!params.length) return ''; return `${formatTime.format(params[0].value[0])}<br>${params.map(item => `${item.marker} ${item.seriesName}: <b>${formatNumber.format(item.value[1])}</b>`).join('<br>')}`; } },
+    grid: { left: narrow ? 46 : 64, right: narrow ? 16 : 25, top: 18, bottom: 92 },
+    legend: { show: false, data: seriesOrder.map(seriesName), selected: legendSelection() },
+    tooltip: { trigger: 'item', confine: true, formatter: params => `${formatTime.format(params.value[0])}<br>${params.marker} ${params.seriesName}: <b>${formatNumber.format(params.value[1])}</b>` },
     xAxis: { type: 'time', min: points[0]?.time, max: Math.max(points.at(-1)?.time ?? 0, (points[0]?.time ?? 0) + bucketMs), axisLabel: { color: '#85929e', fontSize: 11, formatter: value => range === '6h' ? formatHour.format(value) : formatTime.format(value) }, axisLine: { lineStyle: { color: '#bdc8d3' } }, splitLine: { show: false } },
     yAxis: { type: 'value', min: 0, axisLabel: { color: '#85929e', fontSize: 11, formatter: value => formatNumber.format(value) }, axisLine: { show: false }, splitLine: { lineStyle: { color: '#edf0f4' } } },
     dataZoom: [{ type: 'inside', xAxisIndex: 0 }, { type: 'slider', xAxisIndex: 0, bottom: 22, height: 19, borderColor: '#dce3ed', fillerColor: '#dce6fb', handleStyle: { color: '#5272c5' }, showDetail: false }],
