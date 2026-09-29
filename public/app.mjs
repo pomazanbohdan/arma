@@ -21,7 +21,7 @@ let selected = new Set(candidateIds);
 let range = '6h';
 let mode = 'total';
 let loading = false;
-let lastManualRefreshAt = 0;
+let lastManualRefreshAt = Date.now();
 let manualRefreshTimer = null;
 let autoRefreshTimer = null;
 let overviewChart = null;
@@ -62,9 +62,7 @@ function updateRefreshControls() {
   $('use-live').disabled = loading || waiting || sourceMode === 'live';
 }
 
-function requestManualRefresh() {
-  if (loading || Date.now() < lastManualRefreshAt + manualRefreshIntervalMs) return;
-  lastManualRefreshAt = Date.now();
+function startManualRefreshCooldown() {
   if (manualRefreshTimer) clearInterval(manualRefreshTimer);
   manualRefreshTimer = setInterval(() => {
     updateRefreshControls();
@@ -73,6 +71,12 @@ function requestManualRefresh() {
       manualRefreshTimer = null;
     }
   }, 1000);
+}
+
+function requestManualRefresh() {
+  if (loading || Date.now() < lastManualRefreshAt + manualRefreshIntervalMs) return;
+  lastManualRefreshAt = Date.now();
+  startManualRefreshCooldown();
   updateRefreshControls();
   loadReport(true);
 }
@@ -313,4 +317,5 @@ document.addEventListener('click', event => {
 $('refresh').addEventListener('click', requestManualRefresh);
 $('use-live').addEventListener('click', requestManualRefresh);
 $('report-file').addEventListener('change', loadLocalFile);
+startManualRefreshCooldown();
 loadReport();
