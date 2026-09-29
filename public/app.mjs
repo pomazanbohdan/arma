@@ -14,6 +14,7 @@ const reportProxyUrl = 'https://arma-report-proxy.pomazan-bogdan.workers.dev/rep
 const autoRefreshIntervalMs = 5 * 60_000;
 const manualRefreshIntervalMs = 60_000;
 const $ = id => document.getElementById(id);
+let deferredInstallPrompt = null;
 
 let report = null;
 let sourceMode = 'live';
@@ -301,6 +302,82 @@ async function loadLocalFile(event) {
   }
 }
 
+function isInstalledApp() {
+  return (typeof window.matchMedia === 'function' && window.matchMedia('(display-mode: standalone)').matches)
+    || navigator.standalone === true;
+}
+
+function isAppleMobileDevice() {
+  return /iPhone|iPad|iPod/i.test(navigator.userAgent)
+    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+
+function showInstallHelp() {
+  const isAppleMobile = isAppleMobileDevice();
+  const steps = isAppleMobile
+    ? ['У Safari натисніть «Поділитися».', 'Виберіть «На початковий екран».', 'Увімкніть «Відкрити як вебзастосунок» і натисніть «Додати».']
+    : ['Відкрийте меню браузера або кнопку встановлення біля адреси.', 'Виберіть «Встановити» чи «Додати на головний екран».', 'Підтвердіть дію у вікні браузера.'];
+  $('install-help-text').textContent = isAppleMobile
+    ? 'На iPhone та iPad додавання запускається з меню Safari; сайт не може натиснути це замість вас.'
+    : 'Назва пункту залежить від браузера. Якщо встановлення недоступне, спробуйте Chrome на Android або Safari на iPhone та iPad.';
+  const list = $('install-steps');
+  list.replaceChildren(...steps.map(text => {
+    const item = document.createElement('li');
+    item.textContent = text;
+    return item;
+  }));
+  const dialog = $('install-help');
+  if (typeof dialog.showModal === 'function') dialog.showModal();
+  else dialog.setAttribute('open', '');
+}
+
+function initInstallControl() {
+  const button = $('install-app');
+  if (isInstalledApp()) {
+    button.hidden = true;
+    return;
+  }
+  if (isAppleMobileDevice()) button.textContent = 'На екран';
+  button.addEventListener('click', async () => {
+    if (!deferredInstallPrompt) {
+      showInstallHelp();
+      return;
+    }
+    const promptEvent = deferredInstallPrompt;
+    deferredInstallPrompt = null;
+    try {
+      await promptEvent.prompt();
+      const { outcome } = await promptEvent.userChoice;
+      if (outcome === 'accepted') button.hidden = true;
+      else button.textContent = 'Як встановити';
+    } catch {
+      showInstallHelp();
+    }
+  });
+  $('close-install-help').addEventListener('click', () => {
+    const dialog = $('install-help');
+    if (typeof dialog.close === 'function') dialog.close();
+    else dialog.removeAttribute('open');
+  });
+  $('install-help').addEventListener('click', event => {
+    if (event.target !== event.currentTarget) return;
+    const dialog = $('install-help');
+    if (typeof dialog.close === 'function') dialog.close();
+    else dialog.removeAttribute('open');
+  });
+}
+
+window.addEventListener('beforeinstallprompt', event => {
+  event.preventDefault();
+  deferredInstallPrompt = event;
+  $('install-app').textContent = 'Встановити';
+});
+
+window.addEventListener('appinstalled', () => {
+  deferredInstallPrompt = null;
+  $('install-app').hidden = true;
+});
+
 document.addEventListener('click', event => {
   const candidate = event.target.closest('[data-candidate]');
   if (candidate && report) toggleCandidate(Number(candidate.dataset.candidate));
@@ -320,5 +397,6 @@ document.addEventListener('click', event => {
 $('refresh').addEventListener('click', requestManualRefresh);
 $('use-live').addEventListener('click', requestManualRefresh);
 $('report-file').addEventListener('change', loadLocalFile);
+initInstallControl();
 startManualRefreshCooldown();
 loadReport();

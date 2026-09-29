@@ -5,7 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#f6f7f9">
     <meta name="description" content="Незалежний моніторинг відкритого протоколу голосування до Ради громадського контролю при АРМА.">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="АРМА">
     <title>Голосування до Ради громадського контролю при АРМА — моніторинг</title>
+    <link rel="manifest" href="./manifest.webmanifest">
+    <link rel="apple-touch-icon" href="./icons/icon-180.png">
     <link rel="stylesheet" href="./styles.css">
     <script src="https://cdn.jsdelivr.net/npm/echarts@6.1.0/dist/echarts.min.js" integrity="sha384-C2iskrW/uPW46KzOjrvJIQo4YkV8lkD+QS0CrDN18IIPIpT/g2USu8bTP3nvmIAD" crossorigin="anonymous"></script>
     <script type="module" src="./app.mjs"></script>
@@ -15,8 +19,19 @@
       <header class="site-header">
         <a class="brand" href="#top"><span class="brand-mark" aria-hidden="true">↗</span> АРМА · дані</a>
         <nav aria-label="Розділи"><a href="#overview">Підсумок</a><a href="#trend">Тенденції</a><a href="#candidates">Кандидати</a></nav>
+        <button id="install-app" class="install-button" type="button">Як встановити</button>
         <a class="source-link" href="https://voting.arma.gov.ua/voting/" target="_blank" rel="noopener noreferrer">Джерело ↗</a>
       </header>
+
+      <dialog id="install-help" class="install-dialog" aria-labelledby="install-help-title" aria-describedby="install-help-text">
+        <div class="install-dialog-card">
+          <button id="close-install-help" class="install-dialog-close" type="button" aria-label="Закрити">×</button>
+          <span class="section-index">АРМА · вебзастосунок</span>
+          <h2 id="install-help-title">Додати на головний екран</h2>
+          <p id="install-help-text"></p>
+          <ol id="install-steps"></ol>
+        </div>
+      </dialog>
 
       <main id="top">
         <section class="intro-bar" aria-labelledby="page-title">
