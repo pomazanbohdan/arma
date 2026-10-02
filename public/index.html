@@ -35,17 +35,17 @@
 
       <main id="top">
         <section class="intro-bar" aria-labelledby="page-title">
-          <div><span class="eyebrow"><span class="live-dot" aria-hidden="true"></span> Незалежний моніторинг · 2026</span><h1 id="page-title">Рейтинг голосування</h1><p>Рада громадського контролю при АРМА · 29 вересня — 2 жовтня</p></div>
+          <div><span class="eyebrow"><span class="status-dot" aria-hidden="true"></span> Підсумковий зріз даних · 2026</span><h1 id="page-title">Рейтинг голосування</h1><p>Рада громадського контролю при АРМА · 29 вересня — 2 жовтня</p></div>
           <div class="intro-fact"><strong>9 <span>/ 27</span></strong><small>місць / кандидатів</small></div>
         </section>
 
-        <div class="data-status" aria-live="polite"><div><span id="status-dot" class="status-dot" aria-hidden="true"></span><strong id="status-text">Завантаження…</strong><span id="status-detail">Отримуємо протокол</span></div><button id="refresh" type="button">Оновити ↻</button></div>
+        <div class="data-status" aria-live="polite"><div><span id="status-dot" class="status-dot" aria-hidden="true"></span><strong id="status-text">Завантаження…</strong><span id="status-detail">Читаємо локальний знімок</span></div></div>
 
         <section class="metrics" aria-label="Ключові показники">
           <div class="metric"><span>Записів у протоколі</span><strong id="ballots">—</strong></div>
           <div class="metric"><span>Голосів за кандидатів</span><strong id="selections">—</strong></div>
           <div class="metric"><span>Дата та час останнього голосування</span><strong id="last-vote-time" class="metric-time">—</strong></div>
-          <div class="metric"><span>Дата та час оновлення даних</span><strong id="data-updated-time" class="metric-time">—</strong></div>
+          <div class="metric"><span>Дата та час знімка</span><strong id="data-updated-time" class="metric-time">—</strong></div>
         </section>
 
         <section id="overview" class="chart-section" aria-labelledby="overview-title">
@@ -63,12 +63,7 @@
           <div class="list-card"><div class="candidate-table-head"><span>Кандидат · громадське об’єднання</span><span>Всього</span><span>За годину*</span></div><div id="candidate-list"><p class="empty-state">Очікуємо дані…</p></div><p class="list-footnote">* Година до останнього запису протоколу. Виділення восьми кандидатів задане для зручності порівняння.</p></div>
         </section>
 
-        <details class="method"><summary>Дані та методика <span aria-hidden="true">↓</span></summary><div><p>Браузер завантажує <a href="https://voting.arma.gov.ua/voting/public/hashed_report.txt" target="_blank" rel="noopener noreferrer">відкритий протокол АРМА</a> через Cloudflare Worker і локально рахує голоси та будує графіки. Автооновлення — через 5 хвилин після кожного завантаження; вручну — не частіше ніж раз на хвилину. Якщо Worker недоступний, сайт використовує останню копію GitHub Pages.</p><p>Один запис містить до 9 вибраних кандидатів. Час записів інтерпретується як час Києва. IP-адреси й хеші не відображаються. Показники попередні; <a href="https://voting.arma.gov.ua/voting/" target="_blank" rel="noopener noreferrer">офіційні результати оголошує АРМА</a>. Сайт не пов’язаний з АРМА.</p></div></details>
-
-        <section class="fallback" aria-labelledby="fallback-title">
-          <div><span class="section-index">04 / Резерв</span><h2 id="fallback-title">Локальний файл</h2><p>Збережіть <a href="https://voting.arma.gov.ua/voting/public/hashed_report.txt" target="_blank" rel="noopener noreferrer">оригінальний TXT ↗</a> і відкрийте його тут. Файл обробляється лише у вашому браузері.</p></div>
-          <div class="fallback-controls"><label for="report-file">Файл протоколу</label><input id="report-file" type="file" accept=".txt,text/plain"><button id="use-live" type="button" disabled>Повернутися до онлайн</button><p id="fallback-status" role="status" aria-live="polite">Локальний режим вимкнено.</p></div>
-        </section>
+        <details class="method"><summary>Дані та методика <span aria-hidden="true">↓</span></summary><div><p>Сайт використовує зафіксовану локальну копію <a href="./data/hashed_report.txt">відкритого протоколу АРМА</a>, збережену з артефакту GitHub Actions після завершення голосування. Браузер завантажує лише файли цього сайту; оновлення з Worker або за розкладом немає. Час копії та короткий SHA-256 показані над графіками.</p><p>Один запис містить до 9 вибраних кандидатів. Час записів інтерпретується як час Києва. IP-адреси й хеші не відображаються. Архівний протокол відображає голоси на момент закриття; остаточне оголошення оприлюднено на <a href="https://arma.gov.ua/news/typical/golosuvannya-za-sklad-radi-gromadskogo-kontrolyu-pri-arma-zaversheno" target="_blank" rel="noopener noreferrer">офіційному сайті АРМА</a>. Сайт не пов’язаний з АРМА.</p></div></details>
       </main>
 
       <footer><span>Незалежний моніторинг публічних даних</span><a href="https://github.com/pomazanbohdan/arma" target="_blank" rel="noopener noreferrer">Відкритий код ↗</a></footer>

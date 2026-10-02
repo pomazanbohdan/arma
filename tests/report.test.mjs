@@ -1,8 +1,40 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseReport, summarize, trend } from '../public/report.mjs';
+import { createHash } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
+import { parseReport, summarize, trend, trendBucketMs } from '../public/report.mjs';
 
 const line = (time, id, votes) => `${time} ID=${id} IP=masked VOTES=${votes} HASH=${'a'.repeat(64)}`;
+
+test('uses independent sampling periods for accumulated votes and changes', () => {
+  const expected = [
+    ['6h', 300_000, 900_000],
+    ['24h', 900_000, 3_600_000],
+    ['all', 3_600_000, 10_800_000],
+  ];
+  for (const [range, totalMs, paceMs] of expected) {
+    assert.equal(trendBucketMs(range, 'total'), totalMs);
+    assert.equal(trendBucketMs(range, 'pace'), paceMs);
+  }
+  assert.throws(() => trendBucketMs('7d', 'total'), RangeError);
+  assert.throws(() => trendBucketMs('6h', 'toString'), RangeError);
+});
+
+test('coarse all-time trends keep an explicit zero point before the first vote', () => {
+  const records = parseReport([
+    line('2026-09-29 09:02:37.023', 1, '3'),
+    line('2026-09-29 09:04:11.695', 2, '5'),
+  ].join('\n')).records;
+  const first = records[0].time;
+  for (const mode of ['total', 'pace']) {
+    const points = trend(records, [3, 5], first, trendBucketMs('all', mode));
+    assert.equal(points[0].time, first - 1);
+    assert.deepEqual([...points[0].values.values()], [0, 0]);
+    assert.deepEqual([...points[0].increments.values()], [0, 0]);
+    assert.deepEqual([...points.at(-1).values.values()], [1, 1]);
+    assert.deepEqual([...points.at(-1).increments.values()], [1, 1]);
+  }
+});
 
 test('sorts late-arriving rows and counts each choice once', () => {
   const raw = [
@@ -65,4 +97,17 @@ test('all-time trend starts at zero before the first vote and never looks ahead'
   assert.deepEqual([...points[3].values.values()], [1, 1]);
   assert.equal(points.at(-1).time, records.at(-1).time);
   assert.deepEqual([...points.at(-1).values.values()], [2, 1]);
+});
+
+test('bundled final report matches its manifest and parses completely', async () => {
+  const [raw, metaText] = await Promise.all([
+    readFile(new URL('../public/data/hashed_report.txt', import.meta.url), 'utf8'),
+    readFile(new URL('../public/data/meta.json', import.meta.url), 'utf8'),
+  ]);
+  const meta = JSON.parse(metaText);
+  assert.equal(createHash('sha256').update(raw).digest('hex'), meta.sha256);
+  const parsed = parseReport(raw);
+  assert.deepEqual(parsed.rejected, []);
+  assert.equal(parsed.records.length, meta.recordCount);
+  assert.equal(summarize(parsed.records).ballots, meta.recordCount);
 });

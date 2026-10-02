@@ -54,6 +54,17 @@ export function summarize(records, candidateCount = 27) {
   return { counts, lastHour, latestTime, ballots: records.length, selections };
 }
 
+export const TREND_BUCKET_MS = Object.freeze({
+  total: Object.freeze({ '6h': 300_000, '24h': 900_000, all: 3_600_000 }),
+  pace: Object.freeze({ '6h': 900_000, '24h': 3_600_000, all: 10_800_000 }),
+});
+
+export function trendBucketMs(range, mode) {
+  const bucketMs = TREND_BUCKET_MS[mode]?.[range];
+  if (!Number.isSafeInteger(bucketMs) || bucketMs <= 0) throw new RangeError('Unsupported trend range/mode');
+  return bucketMs;
+}
+
 export function trend(records, candidateIds, startTime, bucketMs) {
   const selected = new Set(candidateIds);
   const totals = new Map(candidateIds.map(id => [id, 0]));
